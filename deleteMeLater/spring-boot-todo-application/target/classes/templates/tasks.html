@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link th:rel="stylesheet" th:href="@{/webjars/bootstrap/3.4.1/css/bootstrap.min.css} " />
+</head>
+<body>
+<div class="container">
+    <h1 class="text-center">My tasks for today</h1>
+    <hr />
+    <p th:text="|Happy ${today}|">Today</p>
+
+    <table class="table table-bordered table-striped"><thead> <tr>
+        <th>Actions</th>
+        <th>Id</th>
+        <th>Description</th>
+        <th>Complete</th>
+        <th>Created Date</th>
+        <th>Modified Date</th>
+    </tr>
+    </thead>
+        <tbody>
+        <tr th:each="item : ${todoItems}" th:class="${item.complete} ? success : warning">
+            <td>
+                <div class="btn btn-group-sm" role="group">
+                    <a class="btn btn-info" th:href="@{/edit/{id}(id=${item.id})}">Edit</a>
+                    <a class="btn btn-danger" th:href="@{/delete/{id}(id=${item.id})}">Delete</a>
+                </div>
+            </td>
+            <td th:text="${item.id}">item_id</td>
+            <td th:text="${item.description}">item_description</td>
+            <td th:text="${item.complete}">item_complete</td>
+            <td th:text="${item.createdDate}">item_created_date</td>
+            <td th:text="${item.modifiedDate}">item_modified_date</td>
+        </tr>
+        </tbody>
+    </table>
+    //IT WORKS, okie dokie
+    <p><a class="btn btn-success" href="/create-todo">Add a Task!</a></p>
+
+    <div class="form-group">
+        <label for="imageFile">Load a Picture (like schedule or any other):</label>
+        <input type="file" id="imageFile" accept=".png, .jpg, .jpeg, .gif, .bmp">
+        <div class="form-group">
+            <label for="space" id="space">                           </label>
+        </div>
+        <p><a class="btn btn-success" type="submit" onclick="saveImageLocally()">Submit</a></p>
+
+        <div id="subContainer"></div>
+
+    </div>
+
+    <!-- Display the loaded image -->
+
+    <div class="form-group">
+        <img id="loadedImage" style="max-width: 200%; max-height: 800px;" />
+        <p><a class="btn btn-success"  id="deleteLastImageButton">Delete Last Image</a></p>
+        <div id="buttonContainer"></div>
+    </div>
+
+    <div class="form-group">
+        <label for="noteText">Create a Note:</label>
+        <input type="text" id="noteText" placeholder="Enter your note text">
+        <p><a class="btn btn-success"  id="createNoteButton">Create a Note</a></p>
+        <p><a class="btn btn-success"  id="deleteLastNoteButton">Delete Last Note</a></p>
+        <div id="notesContainer"></div>
+    </div>
+</div>
+
+<script th:src="@{/webjars/jquery/3.6.0/jquery.min.js}"></script>
+<script th:src="@{/webjars/bootstrap/3.4.1/js/bootstrap.min.js}"></script>
+<script>
+    // Initialize notes container for loaded images
+    var imageNotesContainer = document.getElementById('subContainer');
+
+
+    function loadImage(input) {
+        var file = input.files[0];
+
+        if (file) {
+            var reader = new FileReader();
+
+            reader.onload = function (e) {
+                document.getElementById('loadedImage').src = e.target.result;
+            };
+
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function saveImageLocally() {
+        var imageFileInput = document.getElementById('imageFile');
+        var imageFile = imageFileInput.files[0];
+        var container = document.getElementById('notesContainer');
+        var container_i = document.getElementById('subContainer');
+        var imageElement = document.createElement('img');
+        container_i.insertBefore(imageElement, container_i.firstChild);
+        if (imageFile) {
+            var reader = new FileReader();
+
+            reader.onload = function (event) {
+                // Create an image element
+                imageElement.src = event.target.result;
+                var container = document.getElementById('notesContainer');
+                container_i.insertBefore(imageElement, container_i.firstChild);
+                // Check if the image exists before appending
+                checkImageExists(imageElement.src, function (exists) {
+                    if (exists) {
+                        // Append the image to the beginning of the container
+
+                        // Save the image to local storage
+                        saveImageNotesToLocalStorage();
+                    } else {
+                        alert("The image file does not exist.");
+                    }
+                });
+            };
+
+            reader.readAsDataURL(imageFile);
+        } else {
+            alert("Please select an image file.");
+        }
+    }
+
+    function deleteLastImage() {
+        var lastImage = imageNotesContainer.lastChild;
+
+        if (lastImage) {
+            // Ask for confirmation before deleting the last image
+            var confirmation = confirm("Are you sure you want to delete the last image?");
+
+            if (confirmation) {
+                imageNotesContainer.removeChild(lastImage);
+
+                // Save the updated image notes to local storage
+                saveImageNotesToLocalStorage();
+            }
+        } else {
+            alert("No images to delete.");
+        }
+    }
+
+    function loadImageNotesFromLocalStorage() {
+        var savedImageNotes = localStorage.getItem('imageNotes');
+
+        if (savedImageNotes) {
+            var imageNotes = JSON.parse(savedImageNotes);
+
+            // Create image note elements from saved data
+            imageNotes.forEach(function (savedNote) {
+                // Try to create the image element
+                try {
+                    var imageElement = document.createElement('img');
+                    imageElement.src = savedNote.src;
+
+                    // Check if the image exists before appending
+                    checkImageExists(imageElement.src, function (exists) {
+                        if (exists) {
+                            imageNotesContainer.appendChild(imageElement);
+                        }
+                    });
+                } catch (error) {
+                    console.error("Error loading image:", error);
+                }
+            });
+        }
+    }
+
+    function checkImageExists(url, callback) {
+        var img = new Image();
+        img.onload = function () {
+            callback(true);
+        };
+        img.onerror = function () {
+            callback(false);
+        };
+        img.src = url;
+    }
+
+    function saveImageNotesToLocalStorage() {
+        var notes = Array.from(imageNotesContainer.children).map(function (note) {
+            return {
+                type: 'image',
+                src: note.src
+            };
+        });
+
+        localStorage.setItem('imageNotes', JSON.stringify(notes));
+    }
+
+    // ... (rest of the code remains unchanged
+
+    function saveTextNotesToLocalStorage() {
+        var notesContainer = document.getElementById('notesContainer');
+        var notes = Array.from(notesContainer.children).map(function (note) {
+            return {
+                text: note.textContent,
+                color: note.style.backgroundColor
+            };
+        });
+
+        localStorage.setItem('textNotes', JSON.stringify(notes));
+    }
+
+    function loadTextNotesFromLocalStorage() {
+        var notesContainer = document.getElementById('notesContainer');
+        var savedTextNotes = localStorage.getItem('textNotes');
+
+        if (savedTextNotes) {
+            var textNotes = JSON.parse(savedTextNotes);
+
+            // Create text note elements from saved data
+            textNotes.forEach(function (savedNote) {
+                var noteElement = document.createElement('div');
+                noteElement.className = 'note';
+                noteElement.style.backgroundColor = savedNote.color;
+                noteElement.textContent = savedNote.text;
+                notesContainer.appendChild(noteElement);
+            });
+        }
+    }
+
+    function loadNotesFromLocalStorage() {
+        loadTextNotesFromLocalStorage();
+        loadImageNotesFromLocalStorage();
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        // Attach the createNote function to the "Create a Note" button click event
+        document.getElementById('createNoteButton').addEventListener('click', function () {
+            var noteText = document.getElementById('noteText').value;
+            if (noteText.trim() === "") {
+                alert("Note text cannot be empty.");
+                return;
+            }
+
+            // Create a note element
+            var noteElement = document.createElement('div');
+            noteElement.className = 'note';
+            noteElement.style.backgroundColor = 'yellow';
+            noteElement.textContent = noteText;
+
+            // Append the note to the notes container
+            var notesContainer = document.getElementById('notesContainer');
+            notesContainer.appendChild(noteElement);
+
+            // Save the note to local storage
+            saveTextNotesToLocalStorage();
+        });
+
+        // Attach the deleteLastNote function to the "Delete Last Note" button click event
+        document.getElementById('deleteLastNoteButton').addEventListener('click', function () {
+            var notesContainer = document.getElementById('notesContainer');
+            var lastNote = notesContainer.lastChild;
+
+            if (lastNote) {
+                notesContainer.removeChild(lastNote);
+
+                // Save the updated notes to local storage
+                saveTextNotesToLocalStorage();
+            } else {
+                alert("No notes to delete.");
+            }
+        });
+
+        // Attach the deleteLastImage function to the "Delete Last Image" button click event
+        document.getElementById('deleteLastImageButton').addEventListener('click', deleteLastImage);
+
+        // Load existing notes when the page is loaded
+        loadNotesFromLocalStorage();
+    });
+</script>
+</body>
+</html>
